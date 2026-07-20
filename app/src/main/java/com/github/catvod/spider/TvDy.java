@@ -41,7 +41,7 @@ public class TvDy extends Spider {
         List<Vod> list = new ArrayList<>();
         List<Class> classes = new ArrayList<>();
         String[] typeIdList = {"dianying", "dianshiju", "zongyi", "dongman", "tiyu"};
-        String[] typeNameList = {"电影", "电视剧", "综艺", "动漫", "体育"};
+        String[] typeNameList = {"\u7535\u5f71", "\u7535\u89c6\u5267", "\u7efc\u827a", "\u52a8\u6f2b", "\u4f53\u80b2"};
         for (int i = 0; i < typeNameList.length; i++) {
             classes.add(new Class(typeIdList[i], typeNameList[i]));
         }
@@ -61,7 +61,7 @@ public class TvDy extends Spider {
                     list.add(new Vod(id, name, pic));
                 }
             } catch (Exception e) {
-                // 忽略
+                // \u5ffd\u7565
             }
         }
         return Result.string(classes, list);
@@ -90,7 +90,7 @@ public class TvDy extends Spider {
                     list.add(new Vod(id, name, pic));
                 }
             } catch (Exception e) {
-                // 忽略
+                // \u5ffd\u7565
             }
         }
 
@@ -125,15 +125,14 @@ public class TvDy extends Spider {
             Element titleFont = doc.select("h1.title font").first();
             if (titleFont != null) {
                 String yearText = titleFont.text();
-                // 4个反斜杠：Java字符串中\\d表示正则\d
-                Matcher ym = Pattern.compile("(\\\\d{4})").matcher(yearText);
+                Matcher ym = Pattern.compile("(\\d{4})").matcher(yearText);
                 if (ym.find()) year = ym.group(1);
             }
             if (year.isEmpty()) {
                 Elements dataElements = doc.select("p.data");
                 for (Element e : dataElements) {
-                    if (e.text().contains("年份") || e.text().contains("更新")) {
-                        Matcher ym2 = Pattern.compile("(\\\\d{4})").matcher(e.text());
+                    if (e.text().contains("\u5e74\u4efd") || e.text().contains("\u66f4\u65b0")) {
+                        Matcher ym2 = Pattern.compile("(\\d{4})").matcher(e.text());
                         if (ym2.find()) {
                             year = ym2.group(1);
                             break;
@@ -141,7 +140,7 @@ public class TvDy extends Spider {
                     }
                 }
             }
-        } catch (Exception e) { /* 忽略 */ }
+        } catch (Exception e) { /* \u5ffd\u7565 */ }
 
         String desc = doc.select("span.detail-content").text();
         if (desc.isEmpty()) {
@@ -157,7 +156,7 @@ public class TvDy extends Spider {
             if (h4 == null) continue;
 
             String tabName = h4.text().trim();
-            if (tabName.contains("下载地址") || tabName.contains("猜你喜欢")) continue;
+            if (tabName.contains("\u4e0b\u8f7d\u5730\u5740") || tabName.contains("\u731c\u4f60\u559c\u6b22")) continue;
 
             tabName = tabName.replaceAll("<i.*?</i>", "").replaceAll("&nbsp;", " ").trim();
             if (tabName.isEmpty()) continue;
@@ -213,7 +212,7 @@ public class TvDy extends Spider {
                     list.add(new Vod(id, name, pic));
                 }
             } catch (Exception e) {
-                // 忽略
+                // \u5ffd\u7565
             }
         }
         return Result.string(list);
@@ -227,13 +226,12 @@ public class TvDy extends Spider {
 
         String videoUrl = "";
 
-        // 方式1: 匹配 player_aaaa 变量，支持 encrypt:2 (双重URL编码)
-        // 4个反斜杠：Java字符串中\\{表示正则\{，\\\"表示正则\"
+        // \u65b9\u5f0f1: \u5339\u914d player_aaaa \u53d8\u91cf\uff0c\u652f\u6301 encrypt:2 (\u53cc\u91cdURL\u7f16\u7801)
         Pattern playerPattern = Pattern.compile("var player_aaaa=\\\\{.*?\\\\\"url\\\\\":\\\\\"(.*?)\\\\\".*?\\\\}");
         Matcher playerMatcher = playerPattern.matcher(html);
         if (playerMatcher.find()) {
             String encodedUrl = playerMatcher.group(1);
-            // encrypt:2 是双重 URL 编码，需要解码两次
+            // encrypt:2 \u662f\u53cc\u91cd URL \u7f16\u7801\uff0c\u9700\u8981\u89e3\u7801\u4e24\u6b21
             try {
                 String firstDecode = URLDecoder.decode(encodedUrl, "UTF-8");
                 videoUrl = URLDecoder.decode(firstDecode, "UTF-8");
@@ -242,7 +240,7 @@ public class TvDy extends Spider {
             }
         }
 
-        // 方式2: 旧的 base64 解密（兼容旧格式）
+        // \u65b9\u5f0f2: \u65e7\u7684 base64 \u89e3\u5bc6\uff08\u517c\u5bb9\u65e7\u683c\u5f0f\uff09
         if (videoUrl.isEmpty()) {
             Pattern pattern = Pattern.compile("var now=base64decode\\\\(['\"](.*?)['\"]\\\\)");
             Matcher matcher = pattern.matcher(html);
@@ -251,7 +249,7 @@ public class TvDy extends Spider {
             }
         }
 
-        // 方式3: 直接匹配m3u8或mp4链接
+        // \u65b9\u5f0f3: \u76f4\u63a5\u5339\u914dm3u8\u6216mp4\u94fe\u63a5
         if (videoUrl.isEmpty()) {
             Pattern urlPattern = Pattern.compile("(https?://[^\\s'\"]+\\.(m3u8|mp4)[^\\s'\"]*)");
             Matcher urlMatcher = urlPattern.matcher(html);
@@ -260,7 +258,7 @@ public class TvDy extends Spider {
             }
         }
 
-        // 方式4: iframe链接
+        // \u65b9\u5f0f4: iframe\u94fe\u63a5
         if (videoUrl.isEmpty()) {
             Element iframe = doc.select("iframe").first();
             if (iframe != null) {
@@ -277,14 +275,13 @@ public class TvDy extends Spider {
     private String extractId(String url) {
         if (url == null || url.isEmpty()) return null;
         try {
-            // 4个反斜杠：Java字符串中\\d表示正则\d
-            Pattern pattern = Pattern.compile("/vod(?:detail|play)/(\\\\d+)");
+            Pattern pattern = Pattern.compile("/vod(?:detail|play)/(\\d+)");
             Matcher matcher = pattern.matcher(url);
             if (matcher.find()) {
                 return matcher.group(1);
             }
         } catch (Exception e) {
-            // 忽略
+            // \u5ffd\u7565
         }
         return null;
     }
