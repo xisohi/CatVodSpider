@@ -12,6 +12,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -23,14 +24,15 @@ import android.util.Base64;
 public class TvDy extends Spider {
 
     private static final String siteUrl = "https://www.tvdy.xyz";
-    private static final String cateUrl = siteUrl + "/search.php?tid=";
-    private static final String detailUrl = siteUrl + "/movie/";
-    private static final String searchUrl = siteUrl + "/search.php?searchword=";
-    private static final String playUrl = siteUrl + "/play/";
+    private static final String cateUrl = siteUrl + "/vodtype/";
+    private static final String detailUrl = siteUrl + "/voddetail/";
+    private static final String searchUrl = siteUrl + "/vodsearch/-------------.html?wd=";
+    private static final String playUrl = siteUrl + "/vodplay/";
 
     private HashMap<String, String> getHeaders() {
         HashMap<String, String> headers = new HashMap<>();
         headers.put("User-Agent", Util.CHROME);
+        headers.put("Referer", siteUrl);
         return headers;
     }
 
@@ -38,24 +40,28 @@ public class TvDy extends Spider {
     public String homeContent(boolean filter) throws Exception {
         List<Vod> list = new ArrayList<>();
         List<Class> classes = new ArrayList<>();
-        String[] typeIdList = {"1", "2", "3", "4", "5", "34"};
-        String[] typeNameList = {"电影", "电视剧", "综艺", "动漫", "福利", "纪录片"};
+        String[] typeIdList = {"dianying", "dianshiju", "zongyi", "dongman", "tiyu"};
+        String[] typeNameList = {"电影", "电视剧", "综艺", "动漫", "体育"};
         for (int i = 0; i < typeNameList.length; i++) {
             classes.add(new Class(typeIdList[i], typeNameList[i]));
         }
+
         Document doc = Jsoup.parse(OkHttp.string(siteUrl, getHeaders()));
-        for (Element element : doc.select("div.stui-vodlist__box a")) {
+        for (Element element : doc.select("a.stui-vodlist__thumb")) {
             try {
                 String pic = element.attr("data-original");
                 String url = element.attr("href");
                 String name = element.attr("title");
+                if (pic.isEmpty()) continue;
                 if (!pic.startsWith("http")) {
                     pic = siteUrl + pic;
                 }
-                String id = url.split("/")[2];
-                list.add(new Vod(id, name, pic));
+                String id = extractId(url);
+                if (id != null) {
+                    list.add(new Vod(id, name, pic));
+                }
             } catch (Exception e) {
-
+                // 忽略
             }
         }
         return Result.string(classes, list);
@@ -64,89 +70,149 @@ public class TvDy extends Spider {
     @Override
     public String categoryContent(String tid, String pg, boolean filter, HashMap<String, String> extend) throws Exception {
         List<Vod> list = new ArrayList<>();
-        String target = cateUrl + tid + "&searchtype=5&order=commend&page=" + pg;
+        String target = cateUrl + tid + ".html";
+        if (!pg.equals("1")) {
+            target += "?page=" + pg;
+        }
+
         Document doc = Jsoup.parse(OkHttp.string(target, getHeaders()));
-        for (Element element : doc.select("div.stui-vodlist__box a")) {
+        for (Element element : doc.select("a.stui-vodlist__thumb")) {
             try {
                 String pic = element.attr("data-original");
                 String url = element.attr("href");
                 String name = element.attr("title");
+                if (pic.isEmpty()) continue;
                 if (!pic.startsWith("http")) {
                     pic = siteUrl + pic;
                 }
-                String id = url.split("/")[2];
-                list.add(new Vod(id, name, pic));
+                String id = extractId(url);
+                if (id != null) {
+                    list.add(new Vod(id, name, pic));
+                }
             } catch (Exception e) {
-
+                // 忽略
             }
         }
-        Integer total = (Integer.parseInt(pg) + 1) * 20;
-        return Result.string(Integer.parseInt(pg), Integer.parseInt(pg) + 1, 20, total, list);
+
+        int currentPage = Integer.parseInt(pg);
+        int pageSize = 20;
+        int total = (currentPage + 1) * pageSize;
+        return Result.string(currentPage, currentPage + 1, pageSize, total, list);
     }
 
     @Override
     public String detailContent(List<String> ids) throws Exception {
-        Document doc = Jsoup.parse(OkHttp.string(detailUrl.concat(ids.get(0)), getHeaders()));
-        String name = doc.select("h1.title").text();
-        String pic = doc.select("a.pic img").attr("data-original");
-        String year = doc.select("p.data").get(4).text().replace("年份：","");
-        String desc = doc.select("span.detail-content").text();
+        if (ids == null || ids.isEmpty()) return Result.string(new Vod());
 
-        // 播放源
-        Elements tabs = doc.select("div.stui-vodlist__head h4");
-        Elements list = doc.select("div.stui-vodlist__head ul");
-        String PlayFrom = "";
-        String PlayUrl = "";
-        for (int i = 0; i < tabs.size(); i++) {
-            String tabName = tabs.get(i).text();
-            if (!"".equals(PlayFrom)) {
-                PlayFrom = PlayFrom + "$$$" + tabName;
-            } else {
-                PlayFrom = PlayFrom + tabName;
+        String detailId = ids.get(0);
+        Document doc = Jsoup.parse(OkHttp.string(detailUrl.concat(detailId), getHeaders()));
+
+        String name = doc.select("h1.title").text();
+        if (name.isEmpty()) {
+            name = doc.select(".title").text();
+        }
+
+        String pic = doc.select(".stui-content__thumb img.lazyload").attr("data-original");
+        if (pic.isEmpty()) {
+            pic = doc.select(".stui-content__thumb img").attr("src");
+        }
+        if (!pic.startsWith("http")) {
+            pic = siteUrl + pic;
+        }
+
+        String year = "";
+        try {
+            Element titleFont = doc.select("h1.title font").first();
+            if (titleFont != null) {
+                String yearText = titleFont.text();
+                Matcher ym = Pattern.compile("(\d{4})").matcher(yearText);
+                if (ym.find()) year = ym.group(1);
             }
-            Elements li = list.get(i).select("a");
-            String liUrl = "";
-            for (int i1 = 0; i1 < li.size(); i1++) {
-                if (!"".equals(liUrl)) {
-                    liUrl = liUrl + "#" + li.get(i1).text() + "$" + li.get(i1).attr("href").replace("/play/", "");
-                } else {
-                    liUrl = liUrl + li.get(i1).text() + "$" + li.get(i1).attr("href").replace("/play/", "");
+            if (year.isEmpty()) {
+                Elements dataElements = doc.select("p.data");
+                for (Element e : dataElements) {
+                    if (e.text().contains("年份") || e.text().contains("更新")) {
+                        Matcher ym2 = Pattern.compile("(\d{4})").matcher(e.text());
+                        if (ym2.find()) {
+                            year = ym2.group(1);
+                            break;
+                        }
+                    }
                 }
             }
-            if (!"".equals(PlayUrl)) {
-                PlayUrl = PlayUrl + "$$$" + liUrl;
-            } else {
-                PlayUrl = PlayUrl + liUrl;
+        } catch (Exception e) { /* 忽略 */ }
+
+        String desc = doc.select("span.detail-content").text();
+        if (desc.isEmpty()) {
+            desc = doc.select(".detail-sketch").text();
+        }
+
+        Elements heads = doc.select("div.stui-vodlist__head");
+        String playFrom = "";
+        String playUrl = "";
+
+        for (Element head : heads) {
+            Element h4 = head.select("h4").first();
+            if (h4 == null) continue;
+
+            String tabName = h4.text().trim();
+            if (tabName.contains("下载地址") || tabName.contains("猜你喜欢")) continue;
+
+            tabName = tabName.replaceAll("<i.*?</i>", "").replaceAll("&nbsp;", " ").trim();
+            if (tabName.isEmpty()) continue;
+
+            if (!playFrom.isEmpty()) playFrom += "$$$";
+            playFrom += tabName;
+
+            Elements lis = head.select("ul.stui-content__playlist li a");
+            String liUrl = "";
+            for (Element link : lis) {
+                String linkText = link.text().trim();
+                String linkHref = link.attr("href");
+                String playId = linkHref.replace("/vodplay/", "").replace(".html", "");
+                if (!linkText.isEmpty() && !playId.isEmpty()) {
+                    if (!liUrl.isEmpty()) liUrl += "#";
+                    liUrl += linkText + "$" + playId;
+                }
+            }
+            if (!liUrl.isEmpty()) {
+                if (!playUrl.isEmpty()) playUrl += "$$$";
+                playUrl += liUrl;
             }
         }
 
         Vod vod = new Vod();
-        vod.setVodId(ids.get(0));
-        vod.setVodPic(siteUrl + pic);
+        vod.setVodId(detailId);
+        vod.setVodPic(pic);
         vod.setVodYear(year);
         vod.setVodName(name);
         vod.setVodContent(desc);
-        vod.setVodPlayFrom(PlayFrom);
-        vod.setVodPlayUrl(PlayUrl);
+        vod.setVodPlayFrom(playFrom);
+        vod.setVodPlayUrl(playUrl);
         return Result.string(vod);
     }
 
     @Override
     public String searchContent(String key, boolean quick) throws Exception {
         List<Vod> list = new ArrayList<>();
-        Document doc = Jsoup.parse(OkHttp.string(searchUrl.concat(URLEncoder.encode(key)), getHeaders()));
-        for (Element element : doc.select("div.stui-vodlist__box a")) {
+        String target = searchUrl.concat(URLEncoder.encode(key, "UTF-8"));
+        Document doc = Jsoup.parse(OkHttp.string(target, getHeaders()));
+
+        for (Element element : doc.select("a.stui-vodlist__thumb")) {
             try {
                 String pic = element.attr("data-original");
                 String url = element.attr("href");
                 String name = element.attr("title");
+                if (pic.isEmpty()) continue;
                 if (!pic.startsWith("http")) {
                     pic = siteUrl + pic;
                 }
-                String id = url.split("/")[2];
-                list.add(new Vod(id, name, pic));
+                String id = extractId(url);
+                if (id != null) {
+                    list.add(new Vod(id, name, pic));
+                }
             } catch (Exception e) {
-
+                // 忽略
             }
         }
         return Result.string(list);
@@ -154,19 +220,77 @@ public class TvDy extends Spider {
 
     @Override
     public String playerContent(String flag, String id, List<String> vipFlags) throws Exception {
-        Document doc = Jsoup.parse(OkHttp.string(playUrl.concat(id), getHeaders()));
-        String regex = "var now=base64decode(.*?);var";
+        String target = playUrl.concat(id + ".html");
+        Document doc = Jsoup.parse(OkHttp.string(target, getHeaders()));
+        String html = doc.html();
 
-        Pattern pattern = Pattern.compile(regex);
-        Matcher matcher = pattern.matcher(doc.html());
-        String url = doc.html();
-        if (matcher.find()) {
-            url = decodeBase64(matcher.group(1).replace("(\\\"","").replace("\\\")",""));
+        String videoUrl = "";
+
+        // 方式1: 匹配 player_aaaa 变量，支持 encrypt:2 (双重URL编码)
+        Pattern playerPattern = Pattern.compile("var player_aaaa=\{.*?\"url\":\"(.*?)\".*?\}");
+        Matcher playerMatcher = playerPattern.matcher(html);
+        if (playerMatcher.find()) {
+            String encodedUrl = playerMatcher.group(1);
+            // encrypt:2 是双重 URL 编码，需要解码两次
+            try {
+                String firstDecode = URLDecoder.decode(encodedUrl, "UTF-8");
+                videoUrl = URLDecoder.decode(firstDecode, "UTF-8");
+            } catch (Exception e) {
+                videoUrl = encodedUrl;
+            }
         }
-        return Result.get().url(url).header(getHeaders()).string();
+
+        // 方式2: 旧的 base64 解密（兼容旧格式）
+        if (videoUrl.isEmpty()) {
+            Pattern pattern = Pattern.compile("var now=base64decode\(['"](.*?)['"]\)");
+            Matcher matcher = pattern.matcher(html);
+            if (matcher.find()) {
+                videoUrl = decodeBase64(matcher.group(1));
+            }
+        }
+
+        // 方式3: 直接匹配m3u8或mp4链接
+        if (videoUrl.isEmpty()) {
+            Pattern urlPattern = Pattern.compile("(https?://[^\s'"]+\.(m3u8|mp4)[^\s'"]*)");
+            Matcher urlMatcher = urlPattern.matcher(html);
+            if (urlMatcher.find()) {
+                videoUrl = urlMatcher.group(1);
+            }
+        }
+
+        // 方式4: iframe链接
+        if (videoUrl.isEmpty()) {
+            Element iframe = doc.select("iframe").first();
+            if (iframe != null) {
+                videoUrl = iframe.attr("src");
+            }
+        }
+
+        if (!videoUrl.isEmpty()) {
+            return Result.get().url(videoUrl).header(getHeaders()).string();
+        }
+        return Result.get().url("").string();
     }
 
-    public static String decodeBase64(String encodedString) {
-        return new String(Base64.decode(encodedString, Base64.DEFAULT));
+        private String extractId(String url) {
+            if (url == null || url.isEmpty()) return null;
+            try {
+                Pattern pattern = Pattern.compile("/vod(?:detail|play)/(\d+)");
+                Matcher matcher = pattern.matcher(url);
+                if (matcher.find()) {
+                    return matcher.group(1);
+                }
+            } catch (Exception e) {
+                // 忽略
+            }
+            return null;
+        }
+
+        public static String decodeBase64(String encodedString) {
+            try {
+                return new String(Base64.decode(encodedString, Base64.DEFAULT));
+            } catch (Exception e) {
+                return encodedString;
+            }
+        }
     }
-}
