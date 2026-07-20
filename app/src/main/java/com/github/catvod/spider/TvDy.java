@@ -72,7 +72,7 @@ public class TvDy extends Spider {
         List<Vod> list = new ArrayList<>();
         String target = cateUrl + tid + ".html";
         if (!pg.equals("1")) {
-            target += "?page=" + pg;
+            target = cateUrl + tid + "-" + pg + ".html";
         }
 
         Document doc = Jsoup.parse(OkHttp.string(target, getHeaders()));
@@ -125,14 +125,15 @@ public class TvDy extends Spider {
             Element titleFont = doc.select("h1.title font").first();
             if (titleFont != null) {
                 String yearText = titleFont.text();
-                Matcher ym = Pattern.compile("(\d{4})").matcher(yearText);
+                // 4个反斜杠：Java字符串中\\d表示正则\d
+                Matcher ym = Pattern.compile("(\\\\d{4})").matcher(yearText);
                 if (ym.find()) year = ym.group(1);
             }
             if (year.isEmpty()) {
                 Elements dataElements = doc.select("p.data");
                 for (Element e : dataElements) {
                     if (e.text().contains("年份") || e.text().contains("更新")) {
-                        Matcher ym2 = Pattern.compile("(\d{4})").matcher(e.text());
+                        Matcher ym2 = Pattern.compile("(\\\\d{4})").matcher(e.text());
                         if (ym2.find()) {
                             year = ym2.group(1);
                             break;
@@ -227,7 +228,8 @@ public class TvDy extends Spider {
         String videoUrl = "";
 
         // 方式1: 匹配 player_aaaa 变量，支持 encrypt:2 (双重URL编码)
-        Pattern playerPattern = Pattern.compile("var player_aaaa=\{.*?\"url\":\"(.*?)\".*?\}");
+        // 4个反斜杠：Java字符串中\\{表示正则\{，\\\"表示正则\"
+        Pattern playerPattern = Pattern.compile("var player_aaaa=\\\\{.*?\\\\\"url\\\\\":\\\\\"(.*?)\\\\\".*?\\\\}");
         Matcher playerMatcher = playerPattern.matcher(html);
         if (playerMatcher.find()) {
             String encodedUrl = playerMatcher.group(1);
@@ -242,7 +244,7 @@ public class TvDy extends Spider {
 
         // 方式2: 旧的 base64 解密（兼容旧格式）
         if (videoUrl.isEmpty()) {
-            Pattern pattern = Pattern.compile("var now=base64decode\(['"](.*?)['"]\)");
+            Pattern pattern = Pattern.compile("var now=base64decode\\\\(['\"](.*?)['\"]\\\\)");
             Matcher matcher = pattern.matcher(html);
             if (matcher.find()) {
                 videoUrl = decodeBase64(matcher.group(1));
@@ -251,7 +253,7 @@ public class TvDy extends Spider {
 
         // 方式3: 直接匹配m3u8或mp4链接
         if (videoUrl.isEmpty()) {
-            Pattern urlPattern = Pattern.compile("(https?://[^\s'"]+\.(m3u8|mp4)[^\s'"]*)");
+            Pattern urlPattern = Pattern.compile("(https?://[^\\s'\"]+\\.(m3u8|mp4)[^\\s'\"]*)");
             Matcher urlMatcher = urlPattern.matcher(html);
             if (urlMatcher.find()) {
                 videoUrl = urlMatcher.group(1);
@@ -272,25 +274,26 @@ public class TvDy extends Spider {
         return Result.get().url("").string();
     }
 
-        private String extractId(String url) {
-            if (url == null || url.isEmpty()) return null;
-            try {
-                Pattern pattern = Pattern.compile("/vod(?:detail|play)/(\d+)");
-                Matcher matcher = pattern.matcher(url);
-                if (matcher.find()) {
-                    return matcher.group(1);
-                }
-            } catch (Exception e) {
-                // 忽略
+    private String extractId(String url) {
+        if (url == null || url.isEmpty()) return null;
+        try {
+            // 4个反斜杠：Java字符串中\\d表示正则\d
+            Pattern pattern = Pattern.compile("/vod(?:detail|play)/(\\\\d+)");
+            Matcher matcher = pattern.matcher(url);
+            if (matcher.find()) {
+                return matcher.group(1);
             }
-            return null;
+        } catch (Exception e) {
+            // 忽略
         }
+        return null;
+    }
 
-        public static String decodeBase64(String encodedString) {
-            try {
-                return new String(Base64.decode(encodedString, Base64.DEFAULT));
-            } catch (Exception e) {
-                return encodedString;
-            }
+    public static String decodeBase64(String encodedString) {
+        try {
+            return new String(Base64.decode(encodedString, Base64.DEFAULT));
+        } catch (Exception e) {
+            return encodedString;
         }
     }
+}
