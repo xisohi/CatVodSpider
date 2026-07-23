@@ -226,52 +226,77 @@ public class TvDy extends Spider {
 
         String videoUrl = "";
 
-        // \u65b9\u5f0f1: \u5339\u914d player_aaaa \u53d8\u91cf\uff0c\u652f\u6301 encrypt:2 (\u53cc\u91cdURL\u7f16\u7801)
-        Pattern playerPattern = Pattern.compile("var player_aaaa=\\\\{.*?\\\\\"url\\\\\":\\\\\"(.*?)\\\\\".*?\\\\}");
+        // 方式1: 匹配 player_aaaa 变量
+        Pattern playerPattern = Pattern.compile("var player_aaaa=\\{.*?\"url\":\"([^\"]*)\".*?\\}", Pattern.DOTALL);
         Matcher playerMatcher = playerPattern.matcher(html);
         if (playerMatcher.find()) {
             String encodedUrl = playerMatcher.group(1);
-            // encrypt:2 \u662f\u53cc\u91cd URL \u7f16\u7801\uff0c\u9700\u8981\u89e3\u7801\u4e24\u6b21
+            android.util.Log.d("TvDy", "原始 encodedUrl: " + encodedUrl);
+
             try {
-                String firstDecode = URLDecoder.decode(encodedUrl, "UTF-8");
-                videoUrl = URLDecoder.decode(firstDecode, "UTF-8");
+                // 先尝试 Base64 解码
+                byte[] decoded = Base64.decode(encodedUrl, Base64.DEFAULT);
+                String base64Decoded = new String(decoded, "UTF-8");
+                android.util.Log.d("TvDy", "Base64 解码后: " + base64Decoded);
+
+                // 然后尝试 URL 解码
+                String urlDecoded = URLDecoder.decode(base64Decoded, "UTF-8");
+                android.util.Log.d("TvDy", "第一次 URL 解码后: " + urlDecoded);
+
+                // 再次 URL 解码
+                videoUrl = URLDecoder.decode(urlDecoded, "UTF-8");
+                android.util.Log.d("TvDy", "最终 videoUrl: " + videoUrl);
             } catch (Exception e) {
-                videoUrl = encodedUrl;
+                android.util.Log.e("TvDy", "解码失败: " + e.getMessage());
+                // 如果失败，尝试直接 URL 解码
+                try {
+                    String firstDecode = URLDecoder.decode(encodedUrl, "UTF-8");
+                    videoUrl = URLDecoder.decode(firstDecode, "UTF-8");
+                    android.util.Log.d("TvDy", "备用解码 videoUrl: " + videoUrl);
+                } catch (Exception ex) {
+                    videoUrl = encodedUrl;
+                }
             }
+        } else {
+            android.util.Log.d("TvDy", "未找到 player_aaaa");
         }
 
-        // \u65b9\u5f0f2: \u65e7\u7684 base64 \u89e3\u5bc6\uff08\u517c\u5bb9\u65e7\u683c\u5f0f\uff09
+        // 方式2: base64 解密（备选）
         if (videoUrl.isEmpty()) {
-            Pattern pattern = Pattern.compile("var now=base64decode\\\\(['\"](.*?)['\"]\\\\)");
+            Pattern pattern = Pattern.compile("var now=base64decode\\(['\"](.*?)['\"]\\)");
             Matcher matcher = pattern.matcher(html);
             if (matcher.find()) {
                 videoUrl = decodeBase64(matcher.group(1));
+                android.util.Log.d("TvDy", "base64 解密 videoUrl: " + videoUrl);
             }
         }
 
-        // \u65b9\u5f0f3: \u76f4\u63a5\u5339\u914dm3u8\u6216mp4\u94fe\u63a5
+        // 方式3: 直接匹配 m3u8 或 mp4 链接
         if (videoUrl.isEmpty()) {
             Pattern urlPattern = Pattern.compile("(https?://[^\\s'\"]+\\.(m3u8|mp4)[^\\s'\"]*)");
             Matcher urlMatcher = urlPattern.matcher(html);
             if (urlMatcher.find()) {
                 videoUrl = urlMatcher.group(1);
+                android.util.Log.d("TvDy", "直接匹配 videoUrl: " + videoUrl);
             }
         }
 
-        // \u65b9\u5f0f4: iframe\u94fe\u63a5
+        // 方式4: iframe 链接
         if (videoUrl.isEmpty()) {
             Element iframe = doc.select("iframe").first();
             if (iframe != null) {
                 videoUrl = iframe.attr("src");
+                android.util.Log.d("TvDy", "iframe videoUrl: " + videoUrl);
             }
         }
 
-        if (!videoUrl.isEmpty()) {
+        if (!videoUrl.isEmpty() && videoUrl.startsWith("http")) {
+            android.util.Log.d("TvDy", "最终返回有效 videoUrl: " + videoUrl);
             return Result.get().url(videoUrl).header(getHeaders()).string();
         }
+        android.util.Log.d("TvDy", "未获取到有效视频地址");
         return Result.get().url("").string();
     }
-
     private String extractId(String url) {
         if (url == null || url.isEmpty()) return null;
         try {
