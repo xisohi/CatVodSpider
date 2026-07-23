@@ -1,5 +1,5 @@
 {
-  "spider": "https://github.catvod.com/https://github.com/xisohi/CatVodSpider/blob/main/jar/custom_spider.jar;md5;f1381487bcd258e876a567681011f558",
+  "spider": "https://github.catvod.com/https://github.com/xisohi/CatVodSpider/blob/main/jar/custom_spider.jar",
   "lives": [
     {
       "name": "直播ipv6",
