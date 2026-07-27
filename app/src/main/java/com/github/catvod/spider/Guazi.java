@@ -1,16 +1,22 @@
 package com.github.catvod.spider;
 
-import android.content.Context;
-import android.text.TextUtils;
 import android.util.Base64;
+import android.util.Log;
 
 import com.github.catvod.crawler.Spider;
 import com.github.catvod.net.OkHttp;
 import com.github.catvod.net.OkResult;
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.lang.reflect.Type;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
 import java.security.MessageDigest;
 import java.security.PrivateKey;
@@ -30,6 +36,8 @@ import javax.crypto.spec.SecretKeySpec;
 
 public class Guazi extends Spider {
 
+    private static final String TAG = "Guazi";
+
     private String[] hosts = {
             "https://apinew.uozvr.com",
             "https://api.w32z7vtd.com",
@@ -45,8 +53,7 @@ public class Guazi extends Spider {
     private static final String AES_IV = "rCMNwZASNBKZ8mXV";
 
     // RSA 公钥
-    private static final String RSA_PUBLIC_KEY =
-            "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDUM5+/y8sPsWkd1/RQS64X259EUwxFXFE5HlA65MqrxnPs0JqoSRojSDy5QhwvROlaD6TwRQHKMY2OAZ6SnQeUJsChTEFIR9qUkwrs3/MVUMxjsv6JS6Oe/juclyJGTgVmDhB55EafXsD0SQYVj/QXXsxR6ewR5E2kL52yAAD4yQIDAQAB";
+    private static final String RSA_PUBLIC_KEY = "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDUM5+/y8sPsWkd1/RQS64X259EUwxFXFE5HlA65MqrxnPs0JqoSRojSDy5QhwvROlaD6TwRQHKMY2OAZ6SnQeUJsChTEFIR9qUkwrs3/MVUMxjsv6JS6Oe/juclyJGTgVmDhB55EafXsD0SQYVj/QXXsxR6ewR5E2kL52yAAD4yQIDAQAB";
 
     // RSA 私钥
     private static final String RSA_PRIVATE_KEY =
@@ -75,20 +82,22 @@ public class Guazi extends Spider {
     private String tokenId = "";
     private boolean registered = false;
 
-    private Map<String, String> headers;
-    private Map<String, Object> cache = new HashMap<>();
-    private long cacheTimeout = 300;
     private Gson gson = new Gson();
 
-    @Override
-    public void init(Context context, String extend) throws Exception {
-        super.init(context, extend);
+    public Guazi() {
+        Random random = new Random();
+        this.deviceId = String.valueOf(864150060000000L + random.nextInt(10000));
+        StringBuilder sb = new StringBuilder();
+        String chars = "0123456789ABCDEF";
+        for (int i = 0; i < 40; i++) {
+            sb.append(chars.charAt(random.nextInt(chars.length())));
+        }
+        this.deviceKey = sb.toString();
+        initToken();
+    }
 
-        Random rand = new Random();
-        deviceId = String.valueOf(864150060000000L + rand.nextInt(10000));
-        deviceKey = generateHexString(40);
-
-        headers = new HashMap<>();
+    private HashMap<String, String> getHeaders() {
+        HashMap<String, String> headers = new HashMap<>();
         headers.put("User-Agent", "Lavf/57.83.100");
         headers.put("code", "GZ0369");
         headers.put("deviceId", deviceId);
@@ -100,21 +109,19 @@ public class Guazi extends Spider {
         headers.put("Ver", "3.0.3.2");
         headers.put("api-ver", "3.0.3.2");
         headers.put("Referer", host);
-
-        initToken();
+        return headers;
     }
 
-    public String getName() {
-        return "瓜子";
-    }
-
-    // ---------- 设备认证 ----------
+    // ========== 设备认证 ==========
     private void initToken() {
         try {
-            if (!registered) signUp();
+            if (!registered) {
+                signUp();
+            }
             refreshToken();
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, "initToken failed: " + e.getMessage());
+            // 兜底 token
             token = "024212ef0975c5306a1434e113a46463.bc77313e11a248558a6ca244ca980944ec3421fa480c50e0229ad91f1cb15aea582603202cd71796885c9e5163e500f1b72f737059aff1ddb8beea47c5a331d6760540345b7f88b2302a0e6e09589f9dcf3ff9175d8c905f990203f5fc04748008ea7a366571cbf5b09509a873dcfba3cf1d559038f5f5f7ef6e01d1850974aa220eb5178c89e61c24411af9b9a19435e.06fde789ece48d9b33c5dc857e04e9b5838f08264d928b87237d3476c4484b46";
         }
     }
@@ -130,14 +137,6 @@ public class Guazi extends Spider {
         registered = true;
     }
 
-    private void signIn() throws Exception {
-        Map<String, String> params = new HashMap<>();
-        params.put("new_key", deviceKey);
-        params.put("old_key", DEVICE_OLD_KEY);
-        Map<String, Object> result = authRequest("/App/Authentication/Device/signIn", params);
-        applyAuth(result);
-    }
-
     private void refreshToken() throws Exception {
         Map<String, Object> result = authRequest("/App/Authentication/Authenticator/refresh", new HashMap<>());
         applyAuth(result);
@@ -145,79 +144,52 @@ public class Guazi extends Spider {
 
     private void applyAuth(Map<String, Object> result) {
         if (result == null) return;
-        String newToken = (String) result.get("token");
-        if (!TextUtils.isEmpty(newToken)) token = newToken;
-        String newTokenId = (String) result.get("app_user_id");
-        if (!TextUtils.isEmpty(newTokenId)) tokenId = newTokenId;
-    }
-
-    private void ensureToken() throws Exception {
-        if (TextUtils.isEmpty(token) || TextUtils.isEmpty(tokenId)) {
-            if (registered) signIn();
-            else signUp();
-            refreshToken();
+        if (result.containsKey("token")) {
+            token = (String) result.get("token");
+        }
+        if (result.containsKey("app_user_id")) {
+            tokenId = (String) result.get("app_user_id");
         }
     }
 
-    // ---------- 核心请求 ----------
     private Map<String, Object> authRequest(String path, Map<String, String> params) throws Exception {
         return sendEncryptedRequest(params, path, true);
     }
 
-    private Map<String, Object> getData(Map<String, String> data, String path) throws Exception {
-        return getData(data, path, true);
-    }
-
-    private Map<String, Object> getData(Map<String, String> data, String path, boolean useCache) throws Exception {
-        String cacheKey = path + "_" + data.hashCode();
-        if (useCache && cache.containsKey(cacheKey)) {
-            Object[] entry = (Object[]) cache.get(cacheKey);
-            long timestamp = (long) entry[1];
-            if (System.currentTimeMillis() / 1000 - timestamp < cacheTimeout) {
-                return (Map<String, Object>) entry[0];
+    // ========== 核心加密请求 ==========
+    private void ensureToken() throws Exception {
+        if (token.isEmpty() || tokenId.isEmpty()) {
+            if (registered) {
+                refreshToken();
+            } else {
+                signUp();
             }
         }
-
-        for (int attempt = 0; attempt < 3; attempt++) {
-            for (int i = 0; i < hosts.length; i++) {
-                host = hosts[hostIndex];
-                headers.put("Referer", host);
-                try {
-                    Map<String, Object> result = sendEncryptedRequest(data, path, false);
-                    if (result != null) {
-                        if (useCache) cache.put(cacheKey, new Object[]{result, System.currentTimeMillis() / 1000});
-                        return result;
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-                hostIndex = (hostIndex + 1) % hosts.length;
-            }
-            if (attempt < 2) {
-                try { ensureToken(); } catch (Exception ignored) {}
-                hostIndex = 0;
-            }
-        }
-        return null;
     }
 
     private Map<String, Object> sendEncryptedRequest(Map<String, String> data, String path, boolean isAuth) throws Exception {
-        if (!isAuth) ensureToken();
+        if (!isAuth) {
+            ensureToken();
+        }
 
+        // 1. AES 加密参数
         String jsonParams = gson.toJson(data);
         String requestKey = aesEncrypt(jsonParams, AES_KEY, AES_IV).toUpperCase();
 
+        // 2. RSA 加密 keys
         Map<String, String> keyMap = new HashMap<>();
         keyMap.put("iv", AES_IV);
         keyMap.put("key", AES_KEY);
         String keysJson = gson.toJson(keyMap);
         String keys = rsaEncrypt(keysJson, RSA_PUBLIC_KEY);
 
+        // 3. 生成签名
         String t = String.valueOf(System.currentTimeMillis() / 1000);
-        String signStr = "token_id=,token=" + token + ",phone_type=1,request_key=" + requestKey +
-                ",app_id=1,time=" + t + ",keys=" + keys + "*&zvdvdvddbfikkkumtmdwqppp?|4Y!s!2br";
-        String signature = md5(signStr).toUpperCase();
+        String signStr = "token_id=,token=" + token + ",phone_type=1,request_key=" + requestKey
+                + ",app_id=1,time=" + t + ",keys=" + keys + "*&zvdvdvddbfikkkumtmdwqppp?|4Y!s!2br";
+        String signature = getMD5(signStr);
 
+        // 4. 构建请求体
         Map<String, String> body = new LinkedHashMap<>();
         body.put("token", token);
         body.put("token_id", "");
@@ -230,49 +202,62 @@ public class Guazi extends Spider {
         body.put("app_id", "1");
         body.put("ad_version", "1");
 
+        // 5. 发送请求
         String url = host + path;
-        OkResult result = OkHttp.post(url, body, headers);
+        Log.d(TAG, "请求URL: " + url);
+        Log.d(TAG, "请求Body: " + body);
+
+        OkResult result = OkHttp.post(url, body, getHeaders());
         if (result.getCode() != 200) {
             throw new Exception("HTTP " + result.getCode());
         }
 
-        Map<String, Object> resp = gson.fromJson(result.getBody(), new TypeToken<Map<String, Object>>(){}.getType());
+        String responseBody = result.getBody();
+        Log.d(TAG, "响应内容: " + responseBody);
+
+        Map<String, Object> resp = gson.fromJson(responseBody, new TypeToken<Map<String, Object>>(){}.getType());
         if (resp.containsKey("code") && !"200".equals(String.valueOf(resp.get("code")))) {
             throw new Exception("业务错误: " + resp.get("code"));
         }
 
         Map<String, Object> dataSection = (Map<String, Object>) resp.get("data");
-        if (dataSection == null) throw new Exception("缺少data字段");
+        if (dataSection == null) {
+            throw new Exception("缺少data字段");
+        }
 
         String encryptedResponse = (String) dataSection.get("response_key");
         String encryptedKeys = (String) dataSection.get("keys");
 
+        // 6. 解密响应
         String decryptedKeysJson = rsaDecrypt(encryptedKeys, RSA_PRIVATE_KEY);
         Map<String, String> keyInfo = gson.fromJson(decryptedKeysJson, new TypeToken<Map<String, String>>(){}.getType());
         String respKey = keyInfo.get("key");
         String respIv = keyInfo.get("iv");
         String decryptedData = aesDecrypt(encryptedResponse, respKey, respIv);
+
+        Log.d(TAG, "解密后数据: " + decryptedData);
+
         return gson.fromJson(decryptedData, new TypeToken<Map<String, Object>>(){}.getType());
     }
 
-    // ---------- 加解密工具 ----------
+    // ========== 加解密工具 ==========
     private String aesEncrypt(String text, String key, String iv) throws Exception {
-        SecretKeySpec keySpec = new SecretKeySpec(key.getBytes("UTF-8"), "AES");
-        IvParameterSpec ivSpec = new IvParameterSpec(iv.getBytes("UTF-8"));
+        SecretKeySpec keySpec = new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "AES");
+        IvParameterSpec ivSpec = new IvParameterSpec(iv.getBytes(StandardCharsets.UTF_8));
         Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
         cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivSpec);
-        byte[] encrypted = cipher.doFinal(text.getBytes("UTF-8"));
+        byte[] encrypted = cipher.doFinal(text.getBytes(StandardCharsets.UTF_8));
         return bytesToHex(encrypted).toUpperCase();
     }
 
     private String aesDecrypt(String text, String key, String iv) throws Exception {
-        SecretKeySpec keySpec = new SecretKeySpec(key.getBytes("UTF-8"), "AES");
-        IvParameterSpec ivSpec = new IvParameterSpec(iv.getBytes("UTF-8"));
+        SecretKeySpec keySpec = new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "AES");
+        IvParameterSpec ivSpec = new IvParameterSpec(iv.getBytes(StandardCharsets.UTF_8));
         Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
         cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
         byte[] encrypted = hexToBytes(text);
         byte[] decrypted = cipher.doFinal(encrypted);
-        return new String(decrypted, "UTF-8");
+        return new String(decrypted, StandardCharsets.UTF_8);
     }
 
     private String rsaEncrypt(String text, String publicKeyStr) throws Exception {
@@ -282,7 +267,7 @@ public class Guazi extends Spider {
         PublicKey publicKey = factory.generatePublic(spec);
         Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
         cipher.init(Cipher.ENCRYPT_MODE, publicKey);
-        byte[] encrypted = cipher.doFinal(text.getBytes("UTF-8"));
+        byte[] encrypted = cipher.doFinal(text.getBytes(StandardCharsets.UTF_8));
         return Base64.encodeToString(encrypted, Base64.DEFAULT).replace("\n", "");
     }
 
@@ -298,22 +283,13 @@ public class Guazi extends Spider {
         cipher.init(Cipher.DECRYPT_MODE, privateKey);
         byte[] encrypted = Base64.decode(encryptedData, Base64.DEFAULT);
         byte[] decrypted = cipher.doFinal(encrypted);
-        return new String(decrypted, "UTF-8");
+        return new String(decrypted, StandardCharsets.UTF_8);
     }
 
-    private String md5(String text) throws Exception {
+    private String getMD5(String text) throws Exception {
         MessageDigest md = MessageDigest.getInstance("MD5");
-        byte[] digest = md.digest(text.getBytes("UTF-8"));
-        return bytesToHex(digest);
-    }
-
-    private String generateHexString(int length) {
-        Random rand = new Random();
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < length; i++) {
-            sb.append("0123456789ABCDEF".charAt(rand.nextInt(16)));
-        }
-        return sb.toString();
+        byte[] digest = md.digest(text.getBytes(StandardCharsets.UTF_8));
+        return bytesToHex(digest).toUpperCase();
     }
 
     private String bytesToHex(byte[] bytes) {
@@ -334,7 +310,32 @@ public class Guazi extends Spider {
         return data;
     }
 
-    // ---------- TVBox 业务方法 ----------
+    // ========== 业务数据获取 ==========
+    private Map<String, Object> getData(Map<String, String> body, String path) {
+        for (int attempt = 0; attempt < 3; attempt++) {
+            int tried = 0;
+            while (tried < hosts.length) {
+                host = hosts[hostIndex];
+                try {
+                    Map<String, Object> result = sendEncryptedRequest(body, path, false);
+                    if (result != null) return result;
+                } catch (Exception e) {
+                    Log.e(TAG, "请求失败: " + e.getMessage());
+                }
+                hostIndex = (hostIndex + 1) % hosts.length;
+                tried++;
+            }
+            if (attempt < 2) {
+                try {
+                    initToken();
+                } catch (Exception ignored) {}
+                hostIndex = 0;
+            }
+        }
+        return null;
+    }
+
+    // ========== TVBox 接口 ==========
     @Override
     public String homeContent(boolean filter) throws Exception {
         Map<String, Object> result = new LinkedHashMap<>();
@@ -347,71 +348,17 @@ public class Guazi extends Spider {
             classes.add(item);
         }
         result.put("class", classes);
-
-        Map<String, List<Map<String, Object>>> filters = new LinkedHashMap<>();
-        for (String[] cls : classData) {
-            String tid = cls[0];
-            List<Map<String, Object>> filterList = new ArrayList<>();
-
-            Map<String, Object> area = new LinkedHashMap<>();
-            area.put("key", "area");
-            area.put("name", "地区");
-            List<Map<String, String>> areaValues = new ArrayList<>();
-            areaValues.add(createValue("全部", "0"));
-            areaValues.add(createValue("大陆", "大陆"));
-            areaValues.add(createValue("香港", "香港"));
-            areaValues.add(createValue("台湾", "台湾"));
-            areaValues.add(createValue("美国", "美国"));
-            areaValues.add(createValue("韩国", "韩国"));
-            areaValues.add(createValue("日本", "日本"));
-            areaValues.add(createValue("英国", "英国"));
-            areaValues.add(createValue("法国", "法国"));
-            areaValues.add(createValue("泰国", "泰国"));
-            areaValues.add(createValue("印度", "印度"));
-            areaValues.add(createValue("其他", "其他"));
-            area.put("value", areaValues);
-            filterList.add(area);
-
-            Map<String, Object> year = new LinkedHashMap<>();
-            year.put("key", "year");
-            year.put("name", "年份");
-            List<Map<String, String>> yearValues = new ArrayList<>();
-            yearValues.add(createValue("全部", "0"));
-            for (int y = 2025; y >= 2005; y--) yearValues.add(createValue(String.valueOf(y), String.valueOf(y)));
-            yearValues.add(createValue("更早", "2004"));
-            year.put("value", yearValues);
-            filterList.add(year);
-
-            Map<String, Object> sort = new LinkedHashMap<>();
-            sort.put("key", "sort");
-            sort.put("name", "排序");
-            List<Map<String, String>> sortValues = new ArrayList<>();
-            sortValues.add(createValue("最新", "d_id"));
-            sortValues.add(createValue("最热", "d_hits"));
-            sortValues.add(createValue("推荐", "d_score"));
-            sort.put("value", sortValues);
-            filterList.add(sort);
-
-            filters.put(tid, filterList);
-        }
-        result.put("filters", filters);
+        result.put("list", new ArrayList<>());
         return gson.toJson(result);
-    }
-
-    private Map<String, String> createValue(String n, String v) {
-        Map<String, String> item = new LinkedHashMap<>();
-        item.put("n", n);
-        item.put("v", v);
-        return item;
     }
 
     @Override
     public String categoryContent(String tid, String pg, boolean filter, HashMap<String, String> extend) throws Exception {
         Map<String, String> body = new HashMap<>();
-        body.put("area", extend.getOrDefault("area", "0"));
-        body.put("year", extend.getOrDefault("year", "0"));
+        body.put("area", extend != null && extend.containsKey("area") ? extend.get("area") : "0");
+        body.put("year", extend != null && extend.containsKey("year") ? extend.get("year") : "0");
         body.put("pageSize", "30");
-        body.put("sort", extend.getOrDefault("sort", "d_id"));
+        body.put("sort", extend != null && extend.containsKey("sort") ? extend.get("sort") : "d_id");
         body.put("page", pg);
         body.put("tid", tid);
 
@@ -430,6 +377,7 @@ public class Guazi extends Spider {
                 videos.add(video);
             }
         }
+
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("list", videos);
         result.put("page", Integer.parseInt(pg));
@@ -449,12 +397,12 @@ public class Guazi extends Spider {
         body1.put("vod_id", vodId);
         body1.put("mobile_time", t);
         body1.put("token", token);
-        Map<String, Object> qdata = getData(body1, "/App/IndexPlay/playInfo", false);
+        Map<String, Object> qdata = getData(body1, "/App/IndexPlay/playInfo");
 
         Map<String, String> body2 = new HashMap<>();
         body2.put("vurl_cloud_id", "2");
         body2.put("vod_d_id", vodId);
-        Map<String, Object> jdata = getData(body2, "/App/Resource/Vurl/show", false);
+        Map<String, Object> jdata = getData(body2, "/App/Resource/Vurl/show");
 
         if (qdata == null || !qdata.containsKey("vodInfo")) {
             Map<String, Object> emptyResult = new LinkedHashMap<>();
@@ -492,13 +440,13 @@ public class Guazi extends Spider {
                     }
                     if (!params.isEmpty()) {
                         String playName = list.size() == 1 ? (String) vod.get("vod_name") : String.valueOf(i + 1);
-                        String playUrl = params.get(params.size() - 1) + "||" + TextUtils.join("@", names);
+                        String playUrl = params.get(params.size() - 1) + "||" + String.join("@", names);
                         playList.add(playName + "$" + playUrl);
                     }
                 }
             }
         }
-        vod.put("vod_play_url", TextUtils.join("#", playList));
+        vod.put("vod_play_url", String.join("#", playList));
 
         List<Map<String, Object>> resultList = new ArrayList<>();
         resultList.add(vod);
@@ -508,13 +456,18 @@ public class Guazi extends Spider {
     }
 
     @Override
+    public String searchContent(String key, boolean quick) throws Exception {
+        return searchContent(key, quick, "1");
+    }
+
+    @Override
     public String searchContent(String key, boolean quick, String pg) throws Exception {
         Map<String, String> body = new HashMap<>();
         body.put("keywords", key);
         body.put("order_val", "1");
         body.put("page", pg);
 
-        Map<String, Object> data = getData(body, "/App/Index/findMoreVod", false);
+        Map<String, Object> data = getData(body, "/App/Index/findMoreVod");
         List<Map<String, String>> videos = new ArrayList<>();
         if (data != null && data.containsKey("list")) {
             List<Map<String, Object>> list = (List<Map<String, Object>>) data.get("list");
@@ -556,21 +509,23 @@ public class Guazi extends Spider {
             if (kv.length == 2) params.put(kv[0], kv[1]);
         }
         if (resolutions.length > 0) {
-            List<String> resList = new ArrayList<>();
-            for (String r : resolutions) if (r.matches("\\d+")) resList.add(r);
-            resList.sort((a, b) -> Integer.compare(Integer.parseInt(b), Integer.parseInt(a)));
-            if (!resList.isEmpty()) {
-                params.put("resolution", resList.get(0));
-                Map<String, Object> data = getData(params, "/App/Resource/VurlDetail/showOne", false);
-                if (data != null && data.containsKey("url")) {
-                    Map<String, Object> result = new LinkedHashMap<>();
-                    result.put("parse", 0);
-                    result.put("playUrl", "");
-                    result.put("url", data.get("url"));
-                    result.put("header", "{\"User-Agent\":\"Lavf/57.83.100\",\"Referer\":\"http://WJiZxLXA2.com/\"}");
-                    result.put("danmaku", "http://127.0.0.1:9978/proxy?do=diydanmu");
-                    return gson.toJson(result);
-                }
+            int maxRes = 0;
+            for (String r : resolutions) {
+                try {
+                    int res = Integer.parseInt(r);
+                    if (res > maxRes) maxRes = res;
+                } catch (Exception ignored) {}
+            }
+            params.put("resolution", String.valueOf(maxRes));
+            Map<String, Object> data = getData(params, "/App/Resource/VurlDetail/showOne");
+            if (data != null && data.containsKey("url")) {
+                Map<String, Object> result = new LinkedHashMap<>();
+                result.put("parse", 0);
+                result.put("playUrl", "");
+                result.put("url", data.get("url"));
+                result.put("header", "{\"User-Agent\":\"Lavf/57.83.100\",\"Referer\":\"http://WJiZxLXA2.com/\"}");
+                result.put("danmaku", "http://127.0.0.1:9978/proxy?do=diydanmu");
+                return gson.toJson(result);
             }
         }
         Map<String, Object> emptyResult = new LinkedHashMap<>();
