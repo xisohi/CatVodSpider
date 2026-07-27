@@ -10,6 +10,8 @@
 		{"key": "HkTv","name": "☁ TVB云播 | 影视","type": 3,"api": "csp_HkTv","searchable": 0,"filterable": 1},
 		{"key": "JustLive","name": "JustLive | 直播","type": 3,"api": "csp_JustLive","searchable": 1,"filterable": 1	},
 		{"key": "Xb6v","name": "新版6V | 视频","type": 3,"api": "csp_Xb6v","searchable": 1,"filterable": 1},
+		{"key": "Guazi","name": "瓜子","type": 3,"api": "csp_Xb6v","searchable": 1,"filterable": 1},
+
 		{
 			"key": "Jianpian",
 			"name": "\uD83D\uDCC0 荐片 | 视频",
