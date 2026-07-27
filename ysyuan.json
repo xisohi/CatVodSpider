@@ -1,5 +1,5 @@
 {
-	"spider": "https://github.catvod.com/https://github.com/xisohi/CatVodSpider/raw/refs/heads/main/jar/custom_spider.jar;md5;2ad10f3fd57f37bf4c239cabf6509ff6",
+	"spider": "https://github.catvod.com/https://github.com/xisohi/CatVodSpider/raw/refs/heads/main/jar/custom_spider.jar;md5;b8e0e3c5e350f98c997044f22ce29ceb",
 	"wallpaper": "http://lcjly.cn/tupian",
 	"sites": [
 		{"key": "Douban","name": "豆瓣 | 仅推荐","type": 3,"api": "csp_Douban","searchable": 0,"filterable": 1},
