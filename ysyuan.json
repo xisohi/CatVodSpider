@@ -1,5 +1,5 @@
 {
-	"spider": "https://github.catvod.com/https://github.com/xisohi/CatVodSpider/raw/refs/heads/main/jar/custom_spider.jar;md5;1c787b7a6aa92cc7d565312da157790e",
+	"spider": "https://github.catvod.com/https://github.com/xisohi/CatVodSpider/raw/refs/heads/main/jar/custom_spider.jar;md5;aff8443da2be02e9e6dda4360ebfa392",
 	"wallpaper": "http://lcjly.cn/tupian",
 	"sites": [
 		{"key": "Douban","name": "豆瓣 | 仅推荐","type": 3,"api": "csp_Douban","searchable": 0,"filterable": 1},
@@ -7,37 +7,15 @@
 		{"key": "TvDy","name": "电影天堂 | 影视","type": 3,"api": "csp_TvDy","searchable": 1,"filterable": 1},
 		{"key": "Guazi","name": "瓜子","type": 3,"api": "csp_Guazi","searchable": 1,"filterable": 1},
 		{"key": "JinPai","name": "金牌","type": 3,"api": "csp_JinPai","searchable": 1,"filterable": 1},
-
+		{"key": "NongMin","name": "农民","type": 3,"api": "csp_NongMin","searchable": 1,"filterable": 1},
 		{"key": "NCat","name": "网飞猫 | 影视","type": 3,"api": "csp_NCat","searchable": 1,"filterable": 1},
 		{"key": "W55Movie","name": "555电影 | 搜索×","type": 3,"api": "csp_W55Movie","searchable": 0,"filterable": 1},
 		{"key": "DaGongRen","name": "打工人电影 | 影视","type": 3,"api": "csp_DaGongRen","searchable": 1,"filterable": 1},
 		{"key": "HkTv","name": "☁ TVB云播 | 影视","type": 3,"api": "csp_HkTv","searchable": 0,"filterable": 1},
 		{"key": "JustLive","name": "JustLive | 直播","type": 3,"api": "csp_JustLive","searchable": 1,"filterable": 1	},
-
-		{
-			"key": "Jianpian",
-			"name": "\uD83D\uDCC0 荐片 | 视频",
-			"type": 3,
-			"api": "csp_Jianpian",
-			"searchable": 1,
-			"filterable": 1
-		},
-		{
-			"key": "Ying",
-			"name": "\uD83C\uDF38 樱花动漫 | 动漫",
-			"type": 3,
-			"api": "csp_Ying",
-			"searchable": 1,
-			"filterable": 1
-		},
-		{
-			"key": "Ysj",
-			"name": "\uD83C\uDF0F\uFE0F 异世界动漫 | 动漫",
-			"type": 3,
-			"api": "csp_Ysj",
-			"searchable": 1,
-			"filterable": 1
-		},
+		{"key": "Jianpian","name": "\uD83D\uDCC0 荐片 | 视频","type": 3,"api": "csp_Jianpian","searchable": 1,"filterable": 1},
+		{"key": "Ying","name": "\uD83C\uDF38 樱花动漫 | 动漫","type": 3,"api": "csp_Ying","searchable": 1,"filterable": 1},
+		{"key": "Ysj","name": "\uD83C\uDF0F\uFE0F 异世界动漫 | 动漫","type": 3,"api": "csp_Ysj","searchable": 1,"filterable": 1},
 		{"key": "FirstAid","name": "\uD83D\uDCAA 健康 | 视频","type": 3,"api": "csp_FirstAid","searchable": 1,"filterable": 1}
 	],
     "parses": [
