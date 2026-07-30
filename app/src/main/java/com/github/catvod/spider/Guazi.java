@@ -231,8 +231,7 @@ public class Guazi extends Spider {
 
             String time = String.valueOf(System.currentTimeMillis() / 1000);
 
-            String sign = "token_id=" + tokenId
-                    + ",token=" + token
+            String sign = "token_id=,token=" + token
                     + ",phone_type=1,"
                     + "request_key=" + requestKey
                     + ",app_id=1,"
@@ -244,7 +243,7 @@ public class Guazi extends Spider {
 
             HashMap<String, String> body = new HashMap<>();
             body.put("token", token);
-            body.put("token_id", tokenId);
+            body.put("token_id", "");
             body.put("phone_type", "1");
             body.put("time", time);
             body.put("phone_model", "xiaomi-25031");
@@ -584,9 +583,14 @@ public class Guazi extends Spider {
         if (data != null) {
             String url = data.optString("url");
             if (!url.isEmpty()) {
+                // 构造播放所需的 Header Map（与 Python 版一致）
+                HashMap<String, String> playHeaders = new HashMap<>();
+                playHeaders.put("User-Agent", "Lavf/57.83.100");
+                playHeaders.put("Referer", "http://WJiZxLXA2.com/");
+
                 return Result.get()
                         .url(url)
-                        .header(header)
+                        .header(playHeaders)
                         .string();
             }
         }
