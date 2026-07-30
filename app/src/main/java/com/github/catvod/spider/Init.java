@@ -43,6 +43,9 @@ public class Init {
     public static void init(Context context) {
         get().app = ((Application) context);
         SpiderDebug.log("自定義爬蟲代碼載入成功！");
+        new Handler(Looper.getMainLooper()).post(() ->
+                Toast.makeText(context, "本接口免费，请放心使用", Toast.LENGTH_LONG).show()
+        );
     }
 
     public static void execute(Runnable runnable) {
