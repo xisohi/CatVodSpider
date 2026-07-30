@@ -1,15 +1,16 @@
 {
-	"spider": "https://github.catvod.com/https://github.com/xisohi/CatVodSpider/raw/refs/heads/main/jar/custom_spider.jar;md5;bdb6987dbfb3ce0e7b2e052f7af888b5",
+	"spider": "https://github.catvod.com/https://github.com/xisohi/CatVodSpider/raw/refs/heads/main/jar/custom_spider.jar",
 	"wallpaper": "http://lcjly.cn/tupian",
 	"sites": [
 		{"key": "Douban","name": "豆瓣 | 仅推荐","type": 3,"api": "csp_Douban","searchable": 0,"filterable": 1},
-		{"key": "NCat","name": "网飞猫 | 影视","type": 3,"api": "csp_NCat","searchable": 1,"filterable": 1},
+		{"key": "Xb6v","name": "新版6V | 视频","type": 3,"api": "csp_Xb6v","searchable": 1,"filterable": 1},
 		{"key": "TvDy","name": "电影天堂 | 影视","type": 3,"api": "csp_TvDy","searchable": 1,"filterable": 1},
+
+		{"key": "NCat","name": "网飞猫 | 影视","type": 3,"api": "csp_NCat","searchable": 1,"filterable": 1},
 		{"key": "W55Movie","name": "555电影 | 搜索×","type": 3,"api": "csp_W55Movie","searchable": 0,"filterable": 1},
 		{"key": "DaGongRen","name": "打工人电影 | 影视","type": 3,"api": "csp_DaGongRen","searchable": 1,"filterable": 1},
 		{"key": "HkTv","name": "☁ TVB云播 | 影视","type": 3,"api": "csp_HkTv","searchable": 0,"filterable": 1},
 		{"key": "JustLive","name": "JustLive | 直播","type": 3,"api": "csp_JustLive","searchable": 1,"filterable": 1	},
-		{"key": "Xb6v","name": "新版6V | 视频","type": 3,"api": "csp_Xb6v","searchable": 1,"filterable": 1},
 		{"key": "Guazi","name": "瓜子","type": 3,"api": "csp_Guazi","searchable": 1,"filterable": 1},
 
 		{

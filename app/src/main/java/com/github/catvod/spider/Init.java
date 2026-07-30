@@ -44,7 +44,7 @@ public class Init {
         get().app = ((Application) context);
         SpiderDebug.log("自定義爬蟲代碼載入成功！");
         new Handler(Looper.getMainLooper()).post(() ->
-                Toast.makeText(context, "本接口免费，请放心使用", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "本接口免费，请放心使用1", Toast.LENGTH_LONG).show()
         );
     }
 
